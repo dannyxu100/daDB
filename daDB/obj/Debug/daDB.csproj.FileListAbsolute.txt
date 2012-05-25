@@ -3,3 +3,8 @@ D:\工作\daDB\daDB\bin\daDB.pdb
 D:\工作\daDB\daDB\obj\Debug\ResolveAssemblyReference.cache
 D:\工作\daDB\daDB\obj\Debug\daDB.dll
 D:\工作\daDB\daDB\obj\Debug\daDB.pdb
+F:\work\daDB\daDB\bin\daDB.dll
+F:\work\daDB\daDB\bin\daDB.pdb
+F:\work\daDB\daDB\obj\Debug\ResolveAssemblyReference.cache
+F:\work\daDB\daDB\obj\Debug\daDB.dll
+F:\work\daDB\daDB\obj\Debug\daDB.pdb
