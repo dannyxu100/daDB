@@ -135,16 +135,16 @@ namespace daDB
 
 
         /// <summary>
-        /// 执行插入删除修改的sql,只能是insert,update,delete,
-        /// 参数为string数据类型
+        /// 执行插入删除修改的sql,只能是insert,update,delete
         /// </summary>
         /// <param name="sql">传入执行insert,update,delete的sql操作语言</param>
-        public bool runsql(string sql)
+        /// <returns>影响行数</returns>
+        public int runsql(string sql)
         {
-            if ("Closed" == _conn.State.ToString())
+            if (ConnectionState.Closed == _conn.State)
             {
                 _sError = "在操作runsql的时候，数据库的连接没有打开";
-                return false;
+                return 0;
             }
             SqlCommand comm = _conn.CreateCommand();
             SqlTransaction trans = _conn.BeginTransaction();
@@ -152,6 +152,7 @@ namespace daDB
             comm.Connection = _conn;
             comm.Transaction = trans;
 
+            int nline = 0;
             string[] arrSQL = sql.Split(';');
             try
             {
@@ -160,17 +161,17 @@ namespace daDB
                     if ("" != arrSQL[i].Trim())
                     {
                         comm.CommandText = arrSQL[i].Trim();
-                        int tmp = comm.ExecuteNonQuery();
+                        nline += comm.ExecuteNonQuery();
                     }
                 }
                 trans.Commit();
-                return true;
+                return nline;
             }
             catch (Exception ex)
             {
                 _sError = "温馨提示：" + ex.Message;
                 trans.Rollback();
-                return false;
+                return 0;
             }
         }
         /// <summary>
@@ -178,13 +179,14 @@ namespace daDB
         /// 返回类型:bool
         /// </summary>
         /// <param name="sql">传入要查询的Select语句</param>
-        ///  <param name="values">SqlParameter[]数组对象</param>
-        public bool runsql(string sql, params SqlParameter[] values)
+        /// <param name="values">SqlParameter[]数组对象</param>
+        /// <returns>影响行数</returns>
+        public int runsql(string sql, SqlParameter[] values)
         {
-            if ("Closed" == _conn.State.ToString())
+            if (ConnectionState.Closed == _conn.State)
             {
                 _sError = "在操作runsql的时候，数据库的连接没有打开";
-                return false;
+                return 0;
             }
 
             SqlCommand comm = _conn.CreateCommand();
@@ -193,6 +195,7 @@ namespace daDB
             comm.Connection = _conn;
             comm.Transaction = trans;
 
+            int nline = 0;
             string[] arrSQL = sql.Split(';');
             try
             {
@@ -202,44 +205,45 @@ namespace daDB
                     {
                         comm.CommandText = arrSQL[i].Trim();
                         comm.Parameters.AddRange(values);
-                        int tmp = comm.ExecuteNonQuery();
+                        nline += comm.ExecuteNonQuery();
                     }
                 }
                 trans.Commit();
 
-                return true;
+                return nline;
             }
             catch (Exception ex)
             {
                 _sError = "温馨提示：" + ex.Message;
-                return false;
+                return 0;
             }
         }
 
+
         /// <summary>
         /// 执行数据库的查询
-        /// 返回类型：DataSet
-        /// 传入参数:string
         /// </summary>
         /// <param name="sql">传入要查询的Select语句</param>
+        /// <returns>返回数据集</returns>
         public DataSet getDataSet(string sql)
         {
+            if (ConnectionState.Closed == _conn.State)
+            {
+                _sError = "在操作getDataSet的时候，数据库的连接没有打开";
+                return null;
+            }
             if (sql == "")
             {
                 _sError = "查询语句为空";
                 return null;
             }
+
             try
             {
-                if (_conn.State != ConnectionState.Closed)
-                {
-                    SqlDataAdapter adpt = new SqlDataAdapter(sql, _conn);
-                    DataSet ds = new DataSet();
-                    adpt.Fill(ds);
-                    return ds;
-                }
-                return null;
-
+                SqlDataAdapter adpt = new SqlDataAdapter(sql, _conn);
+                DataSet ds = new DataSet();
+                adpt.Fill(ds, "ds1");
+                return ds;
             }
             catch (Exception ex)
             {
@@ -251,13 +255,17 @@ namespace daDB
         }
         /// <summary>
         /// 执行数据库的查询
-        /// 返回类型：DataSet
-        /// 传入参数:string
         /// </summary>
         /// <param name="sql">传入要查询的Select语句</param>
         ///  <param name="values">SqlParameter[]数组对象</param>
-        public DataSet getDataSet(string sql, params SqlParameter[] values)
+        /// <returns>返回数据集</returns>
+        public DataSet getDataSet(string sql, SqlParameter[] values)
         {
+            if (ConnectionState.Closed == _conn.State)
+            {
+                _sError = "在操作getDataSet的时候，数据库的连接没有打开";
+                return null;
+            }
             if (sql == "")
             {
                 _sError = "查询语句为空";
@@ -265,23 +273,94 @@ namespace daDB
             }
             try
             {
-                if (_conn.State == ConnectionState.Open)
-                {
-                    DataSet ds = new DataSet();
-                    SqlCommand comm = new SqlCommand(sql, _conn);
-                    SqlDataAdapter adpt = new SqlDataAdapter();
-                    comm.Parameters.AddRange(values);
-                    adpt.SelectCommand = comm;
+                DataSet ds = new DataSet();
+                SqlCommand comm = new SqlCommand(sql, _conn);
+                SqlDataAdapter adpt = new SqlDataAdapter();
+                comm.Parameters.AddRange(values);
+                adpt.SelectCommand = comm;
 
-                    adpt.Fill(ds);
-                    comm.ExecuteNonQuery();
-                    return ds;
-                }
-                else
-                {
-                    _sError = "数据库连接失败";
-                    return null;
-                }
+                adpt.Fill(ds, "ds1");
+                return ds;
+            }
+            catch (Exception ex)
+            {
+                _sError = "温馨提示：" + ex.Message;
+                return null;
+            }
+        }
+        /// <summary>
+        /// 查询分页数据
+        /// </summary>
+        /// <param name="sql">传入要查询的Select语句</param>
+        /// <param name="values">sql参数</param>
+        /// <param name="count">是否统计总记录数</param>
+        /// <param name="pagesize">分页记录数</param>
+        /// <param name="pageindex">第几页</param>
+        /// <returns>返回数据集</returns>
+        public DataSet getPage(string sql, string order, List<SqlParameter> values, bool count, int pagesize, int pageindex)
+        {
+            if (ConnectionState.Closed == _conn.State)
+            {
+                _sError = "在操作getPage的时候，数据库的连接没有打开";
+                return null;
+            }
+            if (sql == "")
+            {
+                _sError = "查询语句为空";
+                return null;
+            }
+
+            if (order == "")
+            {
+                _sError = "分页查询必须要提交order by排序字段";
+                return null;
+            }
+
+            StringBuilder sqlfix = new StringBuilder();             //包裹后sql代码
+            int start = (pageindex - 1) * pagesize;                 //计算当前页记录的起点和终点
+            int end = start + pagesize;
+
+            if (sql.LastIndexOf("order by") > 0)                    //去掉尾部order by代码
+                sql = sql.Substring(0, sql.LastIndexOf("order by"));
+
+            //sqlfix.Append("set rowcount @pageUpperBound;");
+            if (count)                                              //需要统计总记录数
+            {
+                sqlfix.Append("select count(*) from(" + sql + ") pdt;");
+            }
+
+            sqlfix.Append("select * from (");                       //嵌入row_number排序Id
+
+            sqlfix.Append(sql.Substring(0, sql.IndexOf(",")));
+            sqlfix.Append(",row_number()over(order by " + order + ") RowId");
+            sqlfix.Append(sql.Substring(sql.IndexOf(",")));
+
+            sqlfix.Append(")pgt where RowId>@_PAGESTART and RowId<=@_PAGEEND;");      //通过row_number排序Id和 起点、终点值筛选分页记录
+
+            SqlParameter param = new SqlParameter();                //追加起点和终点参数值
+            param.Direction = ParameterDirection.Input;
+            param.SqlDbType = SqlDbType.Int;
+            param.ParameterName = "@_PAGESTART";
+            param.Value = start;
+            values.Add(param);
+
+            param = new SqlParameter();
+            param.Direction = ParameterDirection.Input;
+            param.SqlDbType = SqlDbType.Int;
+            param.ParameterName = "@_PAGEEND";
+            param.Value = end;
+            values.Add(param);
+
+            try
+            {
+                DataSet ds = new DataSet();
+                SqlCommand comm = new SqlCommand(sqlfix.ToString(), _conn);
+                SqlDataAdapter adpt = new SqlDataAdapter();
+                comm.Parameters.AddRange(values.ToArray());
+                adpt.SelectCommand = comm;
+
+                adpt.Fill(ds, "ds1");
+                return ds;
             }
             catch (Exception ex)
             {
@@ -297,31 +376,30 @@ namespace daDB
          /// <param name="sql"></param>
          /// <returns></returns>
         public DataTable getTable(string sql)
-         {
-             if(sql == "")
-             {
+        {
+            if (ConnectionState.Closed == _conn.State)
+            {
+                _sError = "在操作getTable的时候，数据库的连接没有打开";
+                return null;
+            }
+            if(sql == "")
+            {
                 _sError = "查询语句为空";
                  return null;
-             }
-             try
-             {
-                 if(_conn.State != ConnectionState.Closed)
-                 {
-                     DataSet ds = new DataSet();
-                     SqlCommand comm = new SqlCommand(sql, _conn);
-                     SqlDataAdapter adpt = new SqlDataAdapter(comm);
-                     adpt.Fill(ds);
-                     return ds.Tables[0];
-                 }
-                 return null;
-
-                
-             }
-             catch(Exception ex)
-             {
+            }
+            try
+            {
+                DataSet ds = new DataSet();
+                SqlCommand comm = new SqlCommand(sql, _conn);
+                SqlDataAdapter adpt = new SqlDataAdapter(comm);
+                adpt.Fill(ds, "ds1");
+                return ds.Tables[0];
+            }
+            catch(Exception ex)
+            {
                 _sError = "温馨提示：" + ex.Message;
                 return null;
-             }
+            }
           
          }
         /// <summary>
@@ -330,27 +408,27 @@ namespace daDB
         /// <param name="sql">select语句</param>
         /// <param name="values">SqlParameter[]数组对象</param>
         /// <returns></returns>
-        public DataTable getTable(string sql,params SqlParameter[] values)
+        public DataTable getTable(string sql, SqlParameter[] values)
         {
+            if (ConnectionState.Closed == _conn.State)
+            {
+                _sError = "在操作getTable的时候，数据库的连接没有打开";
+                return null;
+            }
             if (sql == "")
             {
+                _sError = "查询语句为空";
                 return null;
             }
             try
             {
-                if (_conn.State != ConnectionState.Closed)
-                {
-                    DataSet ds = new DataSet();
-                    SqlCommand comm = new SqlCommand(sql, _conn);
-                    SqlDataAdapter dapt = new SqlDataAdapter(comm);
+                DataSet ds = new DataSet();
+                SqlCommand comm = new SqlCommand(sql, _conn);
+                SqlDataAdapter dapt = new SqlDataAdapter(comm);
 
-                    dapt.Fill(ds);
-                    comm.Parameters.AddRange(values);
-                    return ds.Tables[0];
-                }
-                return null;
-
-
+                dapt.Fill(ds, "ds1");
+                comm.Parameters.AddRange(values);
+                return ds.Tables[0];
             }
             catch (Exception ex)
             {
@@ -402,14 +480,13 @@ namespace daDB
 
         }
 
-
         /// <summary>
         /// 执行存储过程
         /// </summary>
         /// <param name="spname">存储过程名</param>
         /// <param name="values">参数列表</param>
         /// <returns></returns>
-        public SqlCommand runsp(string spname, params SqlParameter[] values)
+        public SqlCommand runsp(string spname, SqlParameter[] values)
         {
             if ("Closed" == _conn.State.ToString())
             {
@@ -439,6 +516,7 @@ namespace daDB
                 return null;
             }
         }
+
 
 
         /// <summary>
@@ -485,7 +563,7 @@ namespace daDB
 
             if ("u" == ds.Tables[0].Rows[0]["tbtype"].ToString().ToLower().Trim())  //表明这是一个数据表，再并入主键信息。
             {
-                DataSet dsPK = getDataSet("exec  sys.sp_pkeys '" + name + "'");     //获得的表主键信息。
+                DataSet dsPK = getDataSet("exec sys.sp_pkeys '" + name + "'");      //获得的表主键信息。
 
                 DataColumn col = new DataColumn();
                 col.ColumnName = "pk";
@@ -502,9 +580,154 @@ namespace daDB
             return ds;
         }
 
+        /// <summary>
+        /// 查找数据库数据类型枚举
+        /// </summary>
+        /// <param name="stype">类型名</param>
+        /// <returns>数据库数据类型枚举</returns>
+        public SqlDbType mapDBType(string stype)
+        {
+            SqlDbType dbType = SqlDbType.Variant;       //默认为Object
+
+            switch (stype.ToLower())
+            {
+                case "int":
+                    dbType = SqlDbType.Int;
+                    break;
+                case "varchar":
+                    dbType = SqlDbType.VarChar;
+                    break;
+                case "bit":
+                    dbType = SqlDbType.Bit;
+                    break;
+                case "datetime":
+                    dbType = SqlDbType.DateTime;
+                    break;
+                case "decimal":
+                    dbType = SqlDbType.Decimal;
+                    break;
+                case "float":
+                    dbType = SqlDbType.Float;
+                    break;
+                case "image":
+                    dbType = SqlDbType.Image;
+                    break;
+                case "money":
+                    dbType = SqlDbType.Money;
+                    break;
+                case "ntext":
+                    dbType = SqlDbType.NText;
+                    break;
+                case "nvarchar":
+                    dbType = SqlDbType.NVarChar;
+                    break;
+                case "smalldatetime":
+                    dbType = SqlDbType.SmallDateTime;
+                    break;
+                case "smallint":
+                    dbType = SqlDbType.SmallInt;
+                    break;
+                case "text":
+                    dbType = SqlDbType.Text;
+                    break;
+                case "bigint":
+                    dbType = SqlDbType.BigInt;
+                    break;
+                case "binary":
+                    dbType = SqlDbType.Binary;
+                    break;
+                case "char":
+                    dbType = SqlDbType.Char;
+                    break;
+                case "nchar":
+                    dbType = SqlDbType.NChar;
+                    break;
+                case "numeric":
+                    dbType = SqlDbType.Decimal;
+                    break;
+                case "real":
+                    dbType = SqlDbType.Real;
+                    break;
+                case "smallmoney":
+                    dbType = SqlDbType.SmallMoney;
+                    break;
+                case "sql_variant":
+                    dbType = SqlDbType.Variant;
+                    break;
+                case "timestamp":
+                    dbType = SqlDbType.Timestamp;
+                    break;
+                case "tinyint":
+                    dbType = SqlDbType.TinyInt;
+                    break;
+                case "uniqueidentifier":
+                    dbType = SqlDbType.UniqueIdentifier;
+                    break;
+                case "varbinary":
+                    dbType = SqlDbType.VarBinary;
+                    break;
+                case "xml":
+                    dbType = SqlDbType.Xml;
+                    break;
+            }
+            return dbType;
+        }
 
         /// <summary>
-        /// 中对应表名的流水号
+        /// 通过数据库对象信息，创建SqlParameter
+        /// </summary>
+        /// <param name="row">数据库对象信息</param>
+        /// <param name="value">参数值</param>
+        /// <returns>SqlParameter对象</returns>
+        public SqlParameter getSqlParam(DataRow row, string value)
+        {
+            SqlParameter param = new SqlParameter();
+
+            param.ParameterName = "@" + row["name"].ToString();
+
+            string type = row["dtype"].ToString().Trim().ToLower();
+            if (type != "ntext" &&
+                type != "text" &&
+                type != "uniqueidentifier" &&
+                type != "image" &&
+                type != "sql_variant" &&
+                type != "xml")                             //设置参数长度
+            {
+                param.Size = Convert.ToInt32(row["length"]);
+            }
+            param.SqlDbType = mapDBType(type);
+
+
+            if (value == "" &&
+                type != "varchar" &&
+                type != "nvarchar" &&
+                type != "text" &&
+                type != "ntext" &&
+                type != "char" &&
+                type != "nchar")                           //空数据
+            {
+                param.Value = System.DBNull.Value;
+            }
+            else
+            {
+                param.Value = value;
+            }
+
+
+            if (row["isoutparam"].ToString() == "0")        //存储过程输出参数
+            {
+                param.Direction = ParameterDirection.Input;
+            }
+            else                                            //输入参数
+            {
+                param.Direction = ParameterDirection.Output;
+            }
+
+            return param;
+        }
+
+        /// <summary>
+        /// 获取一个新的流水号
         /// </summary>
         /// <param name="tablename">表名</param>
         /// <returns>新流水号</returns>
@@ -512,8 +735,8 @@ namespace daDB
         {
             if ("Closed" == _conn.State.ToString())
             {
-                _sError = "在操作getPKey的时候，数据库的连接没有打开";
-                return null;
+                _sError = "在操作getNewPK的时候，数据库的连接没有打开";
+                return "";
             }
 
             List<SqlParameter> list = new List<SqlParameter>();
@@ -537,8 +760,6 @@ namespace daDB
             return comm.Parameters["@newid"].Value.ToString();
 
         }
-
-
 
     }
 }

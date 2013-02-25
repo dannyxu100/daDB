@@ -92,146 +92,44 @@ namespace daDB
             else return str2;
         }
 
-
-        public static SqlParameter getSqlParam(DataRow row, string value)
-        {
-            SqlParameter param = new SqlParameter();
-
-            param.ParameterName = "@" + row["name"].ToString();
-
-            string type = row["dtype"].ToString().Trim().ToLower();
-            if (type != "ntext" &&
-                type != "text" &&
-                type != "uniqueidentifier" &&
-                type != "image" &&
-                type != "sql_variant" && 
-                type != "xml")                             //设置参数长度
-            {
-                param.Size = Convert.ToInt32(row["length"]);
-            }
-            param.SqlDbType = Functions.mapDBType(type);
-
-
-            if (value == "" && 
-                type != "varchar" &&
-                type != "nvarchar" &&
-                type != "text" &&
-                type != "ntext" &&
-                type != "char" &&
-                type != "nchar")                           //空数据
-            {
-                param.Value = System.DBNull.Value;
-            }
-            else
-            {
-                param.Value = value;
-            }
-
-
-            if (row["isoutparam"].ToString() == "0")        //存储过程输出参数
-            {
-                param.Direction = ParameterDirection.Input;
-            }
-            else                                            //输入参数
-            {
-                param.Direction = ParameterDirection.Output;
-            }
-
-            return param;
-        }
-
         /// <summary>
-        /// 查找数据库数据类型枚举
+        /// 
         /// </summary>
-        /// <param name="stype">类型名</param>
-        /// <returns>数据库数据类型枚举</returns>
-        public static SqlDbType mapDBType(string stype )
+        /// <param name="dscmp"></param>
+        public static void nonull2(DataSet dscmp)
         {
-            SqlDbType dbType = SqlDbType.Variant;       //默认为Object
-
-            switch (stype.ToLower())
+            foreach (DataTable t1 in dscmp.Tables)
             {
-                case "int":
-                    dbType = SqlDbType.Int;
-                    break;
-                case "varchar":
-                    dbType = SqlDbType.VarChar;
-                    break;
-                case "bit":
-                    dbType = SqlDbType.Bit;
-                    break;
-                case "datetime":
-                    dbType = SqlDbType.DateTime;
-                    break;
-                case "decimal":
-                    dbType = SqlDbType.Decimal;
-                    break;
-                case "float":
-                    dbType = SqlDbType.Float;
-                    break;
-                case "image":
-                    dbType = SqlDbType.Image;
-                    break;
-                case "money":
-                    dbType = SqlDbType.Money;
-                    break;
-                case "ntext":
-                    dbType = SqlDbType.NText;
-                    break;
-                case "nvarchar":
-                    dbType = SqlDbType.NVarChar;
-                    break;
-                case "smalldatetime":
-                    dbType = SqlDbType.SmallDateTime;
-                    break;
-                case "smallint":
-                    dbType = SqlDbType.SmallInt;
-                    break;
-                case "text":
-                    dbType = SqlDbType.Text;
-                    break;
-                case "bigint":
-                    dbType = SqlDbType.BigInt;
-                    break;
-                case "binary":
-                    dbType = SqlDbType.Binary;
-                    break;
-                case "char":
-                    dbType = SqlDbType.Char;
-                    break;
-                case "nchar":
-                    dbType = SqlDbType.NChar;
-                    break;
-                case "numeric":
-                    dbType = SqlDbType.Decimal;
-                    break;
-                case "real":
-                    dbType = SqlDbType.Real;
-                    break;
-                case "smallmoney":
-                    dbType = SqlDbType.SmallMoney;
-                    break;
-                case "sql_variant":
-                    dbType = SqlDbType.Variant;
-                    break;
-                case "timestamp":
-                    dbType = SqlDbType.Timestamp;
-                    break;
-                case "tinyint":
-                    dbType = SqlDbType.TinyInt;
-                    break;
-                case "uniqueidentifier":
-                    dbType = SqlDbType.UniqueIdentifier;
-                    break;
-                case "varbinary":
-                    dbType = SqlDbType.VarBinary;
-                    break;
-                case "xml":
-                    dbType = SqlDbType.Xml;
-                    break;
+                for (int i = 0; i < t1.Rows.Count; i++)
+                {
+                    DataRow tr1 = t1.Rows[i];
+                    for (int ti1 = 0; ti1 < t1.Columns.Count; ti1++)
+                    {
+                        if (tr1[ti1].Equals(System.DBNull.Value))
+                        {
+                            if (t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.DateTime")))
+                                tr1[ti1] = DateTime.Parse("1900-1-1");  //DateTime.Today ;
+                            else
+                                if ((t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.Boolean"))))
+                                    tr1[ti1] = false;
+                                else
+                                    if ((t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.Int32"))) ||
+                                    (t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.Double"))) ||
+                                    (t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.Decimal"))) ||
+                                    (t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.Int16"))) ||
+                                    (t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.Int64"))) ||
+                                    (t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.SByte"))) ||
+                                    (t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.Byte"))) ||
+                                    (t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.Single"))) ||
+                                    (t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.UInt16"))) ||
+                                    (t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.UInt32"))) ||
+                                    (t1.Columns[ti1].DataType.Equals(System.Type.GetType("System.UInt64"))))
+                                        tr1[ti1] = 0;
+                                    else tr1[ti1] = "";
+                        }
+                    }
+                }
             }
-            return dbType;
         }
-
     }
 }
